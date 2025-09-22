@@ -6,10 +6,10 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 public class KeySender implements Runnable {
     Map<String, Main.Data> dataMap;
-    LinkedBlockingQueue genQueue;
-    LinkedBlockingQueue sendQueue;
-    LinkedBlockingQueue sendCheckedQueue;
-    public KeySender(Map<String, Main.Data> dataMap, LinkedBlockingQueue genQueue, LinkedBlockingQueue sendQueue, LinkedBlockingQueue sendCheckedQueue) {
+    LinkedBlockingQueue<String> genQueue;
+    LinkedBlockingQueue<Main.Message> sendQueue;
+    LinkedBlockingQueue<String> sendCheckedQueue;
+    public KeySender(Map<String, Main.Data> dataMap, LinkedBlockingQueue<String> genQueue, LinkedBlockingQueue<Main.Message> sendQueue, LinkedBlockingQueue<String> sendCheckedQueue) {
         this.dataMap = dataMap;
         this.genQueue = genQueue;
         this.sendQueue = sendQueue;
@@ -18,14 +18,10 @@ public class KeySender implements Runnable {
 
     @Override
     public void run() {
-        new Thread(){
-            while(true) {
-
-            }
-        }.start();
+        new Thread(this::secondSender).start();
         try {
-            while (true) {
-                Main.Message message = (Main.Message) sendQueue.take();
+            while (!Thread.currentThread().isInterrupted()) {
+                Main.Message message = sendQueue.take();
                 Main.Data data = new Main.Data();
                 if (dataMap.containsKey(message.name)) {
                     data = dataMap.get(message.name);
@@ -41,27 +37,38 @@ public class KeySender implements Runnable {
                 }
             }
         } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+            Thread.currentThread().interrupt();
+            System.out.println("KeySender thread interrupted");
         }
 
     }
 
     private void send(Main.Data data, SocketChannel channel) {
         if (channel.isOpen()) {
-            channel.write(data.certificateData.toString())
+            try {
+                java.nio.ByteBuffer buffer = java.nio.ByteBuffer.wrap(data.certificateData.toString().getBytes());
+                channel.write(buffer);
+            } catch (java.io.IOException e) {
+                System.err.println("Error writing to channel: " + e.getMessage());
+            }
         }
     }
 
     public void secondSender() {
-        while (true) {
-            String name = sendCheckedQueue.take();
-            Main.Data data = dataMap.get(name);
-            if (!data.ready) {
-                continue;
+        try {
+            while (!Thread.currentThread().isInterrupted()) {
+                String name = sendCheckedQueue.take();
+                Main.Data data = dataMap.get(name);
+                if (!data.ready) {
+                    continue;
+                }
+                for (SocketChannel socketChannel : data.list) {
+                    send(data, socketChannel);
+                }
             }
-            for (SocketChannel socketChannel : data.list) {
-                send(data, socketChannel);
-            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            System.out.println("SecondSender thread interrupted");
         }
     }
 }

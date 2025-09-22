@@ -15,15 +15,15 @@ public class KeyGeneration implements Runnable {
     Map<String, Main.Data> dataMap;
     private final String issuerDN;
     private final PrivateKey signingKey;
-    LinkedBlockingQueue genQueue;
-    LinkedBlockingQueue sendCheckedQueue;
+    LinkedBlockingQueue<String> genQueue;
+    LinkedBlockingQueue<String> sendCheckedQueue;
     
     static {
         Security.addProvider(new BouncyCastleProvider());
     }
 
     public KeyGeneration(String issuerDN, PrivateKey signingKey, Map<String, Main.Data> dataMap,
-                         LinkedBlockingQueue genQueue, LinkedBlockingQueue sendCheckedQueue) {
+                         LinkedBlockingQueue<String> genQueue, LinkedBlockingQueue<String> sendCheckedQueue) {
         this.issuerDN = issuerDN;
         this.signingKey = signingKey;
         this.dataMap = dataMap;
@@ -43,7 +43,9 @@ public class KeyGeneration implements Runnable {
             );
 
             CertificateData certData = new CertificateData(subjectName, keyPair, certificate);
-            dataMap.get(subjectName).certificateData = certData;
+            Main.Data data = dataMap.get(subjectName);
+            data.certificateData = certData;
+            data.ready = true;
 
         } catch (Exception e) {
             throw new RuntimeException("Ошибка при генерации ключей и сертификата для " + subjectName, e);
@@ -52,7 +54,16 @@ public class KeyGeneration implements Runnable {
 
     @Override
     public void run() {
-
+        try {
+            while (!Thread.currentThread().isInterrupted()) {
+                String name = genQueue.take();
+                generateKeysAndCertificate(name);
+                sendCheckedQueue.put(name);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            System.out.println("KeyGeneration thread interrupted");
+        }
     }
 
     public static class CertificateData {
