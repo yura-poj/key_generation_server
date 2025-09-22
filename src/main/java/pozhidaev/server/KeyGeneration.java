@@ -46,9 +46,10 @@ public class KeyGeneration implements Runnable {
             Main.Data data = dataMap.get(subjectName);
             data.certificateData = certData;
             data.ready = true;
+            System.out.println("Generated keys for " + subjectName);
 
         } catch (Exception e) {
-            throw new RuntimeException("Ошибка при генерации ключей и сертификата для " + subjectName, e);
+            throw new RuntimeException("Error at generating for " + subjectName, e);
         }
     }
 
@@ -82,5 +83,39 @@ public class KeyGeneration implements Runnable {
         public X509Certificate getCertificate() { return certificate; }
         public PublicKey getPublicKey() { return keyPair.getPublic(); }
         public PrivateKey getPrivateKey() { return keyPair.getPrivate(); }
+        
+        public String toPemFormat() {
+            try {
+                StringBuilder sb = new StringBuilder();
+                
+                sb.append("-----BEGIN PRIVATE KEY-----\n");
+                String privateKeyEncoded = java.util.Base64.getEncoder().encodeToString(keyPair.getPrivate().getEncoded());
+                for (int i = 0; i < privateKeyEncoded.length(); i += 64) {
+                    int end = Math.min(i + 64, privateKeyEncoded.length());
+                    sb.append(privateKeyEncoded.substring(i, end)).append("\n");
+                }
+                sb.append("-----END PRIVATE KEY-----\n");
+                
+                sb.append("-----BEGIN PUBLIC KEY-----\n");
+                String publicKeyEncoded = java.util.Base64.getEncoder().encodeToString(keyPair.getPublic().getEncoded());
+                for (int i = 0; i < publicKeyEncoded.length(); i += 64) {
+                    int end = Math.min(i + 64, publicKeyEncoded.length());
+                    sb.append(publicKeyEncoded.substring(i, end)).append("\n");
+                }
+                sb.append("-----END PUBLIC KEY-----\n");
+                
+                sb.append("-----BEGIN CERTIFICATE-----\n");
+                String certEncoded = java.util.Base64.getEncoder().encodeToString(certificate.getEncoded());
+                for (int i = 0; i < certEncoded.length(); i += 64) {
+                    int end = Math.min(i + 64, certEncoded.length());
+                    sb.append(certEncoded.substring(i, end)).append("\n");
+                }
+                sb.append("-----END CERTIFICATE-----\n");
+                
+                return sb.toString();
+            } catch (Exception e) {
+                throw new RuntimeException("Error converting to PEM format", e);
+            }
+        }
     }
 }
