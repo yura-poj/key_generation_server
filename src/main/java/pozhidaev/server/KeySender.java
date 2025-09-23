@@ -1,5 +1,6 @@
 package pozhidaev.server;
 
+import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -50,7 +51,9 @@ public class KeySender implements Runnable {
                 java.nio.ByteBuffer buffer = java.nio.ByteBuffer.wrap(pemData.getBytes());
                 channel.write(buffer);
                 System.out.println("Send for: " + channel.getRemoteAddress());
-            } catch (java.io.IOException e) {
+                } catch (java.net.SocketException e) {
+                System.err.println("Error writing to channel: " + e.getMessage());
+            } catch (IOException e) {
                 System.err.println("Error writing to channel: " + e.getMessage());
             }
         }

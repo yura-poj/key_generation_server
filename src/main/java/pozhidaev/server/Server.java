@@ -40,11 +40,11 @@ public class Server {
                     client.configureBlocking(false);
                     client.register(selector, SelectionKey.OP_READ);
                 }
-
                 if (key.isReadable()) {
-                    SocketChannel client = (SocketChannel) key.channel();
-                    ByteBuffer buffer = ByteBuffer.allocate(1024);
-                    int bytesRead = client.read(buffer);
+                    try (SocketChannel client = (SocketChannel) key.channel();){
+
+                        ByteBuffer buffer = ByteBuffer.allocate(1024);
+                        int bytesRead = client.read(buffer);
 
                     if (bytesRead == -1) {
                         key.cancel();
@@ -54,8 +54,11 @@ public class Server {
                         byte[] data = new byte[buffer.limit()];
                         buffer.get(data);
                         Main.Message message = new Main.Message(new String(data), client);
-
                         sendQueue.put(message);
+                    }
+                    } catch (java.net.SocketException e) {
+                        System.out.println("Socket exception: " + e.getMessage());
+                        key.cancel();
                     }
                 }
             }
